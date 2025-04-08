@@ -1,4 +1,4 @@
-name: Execute Colab Notebook Daily
+name: Execute Notebook Daily
 
 on:
   schedule:
@@ -8,22 +8,47 @@ on:
 jobs:
   run-notebook:
     runs-on: ubuntu-latest
+    timeout-minutes: 30  # Previene ejecuciones eternas
+
     steps:
     - uses: actions/checkout@v4
-    
+
     - name: Set up Python
       uses: actions/setup-python@v4
       with:
         python-version: '3.11'
-        
+
     - name: Install dependencies
       run: |
-        pip install jupyter nbconvert ipykernel
+        pip install --upgrade pip
         pip install gspread pandas openpyxl gdown schedule
-        
-    - name: Execute notebook
+        pip install google-auth google-auth-oauthlib google-auth-httplib2 nbconvert
+
+    - name: Create credentials file
       env:
         GOOGLE_SHEETS_CREDS: ${{ secrets.GOOGLE_SHEETS_CREDS }}
       run: |
-        jupyter nbconvert --to python --execute CARGA_AUTOMATICA_DE_DATOS.ipynb
-        echo "Ejecutado el $(date)" >> execution_log.txt
+        echo '$GOOGLE_SHEETS_CREDS' > service_account.json
+        echo "🔐 Archivo de credenciales creado:"
+        ls -la service_account.json
+
+    - name: Convert and execute notebook
+      run: |
+        # Convertir notebook a script (eliminando celdas de Colab)
+        jupyter nbconvert --to python \
+          --TagRemovePreprocessor.enabled=True \
+          --TagRemovePreprocessor.remove_cell_tags="colab-only" \
+          --execute CARGA_AUTOMATICA_DE_DATOS.ipynb
+
+        # Ejecutar directamente (opcional)
+        python CARGA_AUTOMATICA_DE_DATOS.py
+
+    - name: Upload logs
+      if: always()
+      uses: actions/upload-artifact@v3
+      with:
+        name: execution-logs
+        path: |
+          service_account.json
+          CARGA_AUTOMATICA_DE_DATOS.py
+          cambios.log
