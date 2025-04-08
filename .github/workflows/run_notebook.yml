@@ -20,13 +20,34 @@ jobs:
       run: |
         pip install jupyter nbconvert ipykernel
         pip install gspread pandas openpyxl gdown schedule
+        pip install google-auth google-auth-oauthlib google-auth-httplib2
         
-    - name: Execute notebook
+    - name: Create credentials file
       env:
         GOOGLE_SHEETS_CREDS: ${{ secrets.GOOGLE_SHEETS_CREDS }}
       run: |
-        # Convertir notebook a script y ejecutar
-        jupyter nbconvert --to python --execute CARGA_AUTOMATICA_DE_DATOS.ipynb
+        echo '$GOOGLE_SHEETS_CREDS' > service_account.json
+        echo "Archivo de credenciales creado:"
+        ls -la service_account.json
         
-        # Opcional: guardar resultados
-        echo "Notebook ejecutado en $(date)" >> execution_log.txt
+    - name: Execute notebook
+      run: |
+        # Convertir y ejecutar notebook con manejo de errores
+        if ! jupyter nbconvert --to python --execute CARGA_AUTOMATICA_DE_DATOS.ipynb; then
+            echo "❌ Error al ejecutar el notebook"
+            cat CARGA_AUTOMATICA_DE_DATOS.py || true
+            exit 1
+        fi
+        
+        # Guardar logs
+        echo "Ejecutado el $(date)" >> execution_log.txt
+        echo "✅ Notebook ejecutado correctamente"
+        
+    - name: Upload logs (opcional)
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: execution-logs
+        path: |
+          execution_log.txt
+          CARGA_AUTOMATICA_DE_DATOS.py
