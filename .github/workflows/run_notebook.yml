@@ -1,0 +1,32 @@
+name: Execute Colab Notebook Daily
+
+on:
+  schedule:
+    - cron: '0 0 * * *'  # Ejecuta diariamente a medianoche UTC
+  workflow_dispatch:      # Permite ejecución manual
+
+jobs:
+  run-notebook:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+        
+    - name: Install dependencies
+      run: |
+        pip install jupyter nbconvert ipykernel
+        pip install gspread pandas openpyxl gdown schedule
+        
+    - name: Execute notebook
+      env:
+        GOOGLE_SHEETS_CREDS: ${{ secrets.GOOGLE_SHEETS_CREDS }}
+      run: |
+        # Convertir notebook a script y ejecutar
+        jupyter nbconvert --to python --execute CARGA_AUTOMATICA_DE_DATOS.ipynb
+        
+        # Opcional: guardar resultados
+        echo "Notebook ejecutado en $(date)" >> execution_log.txt
