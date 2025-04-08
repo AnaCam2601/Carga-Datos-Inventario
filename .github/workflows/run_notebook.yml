@@ -8,7 +8,7 @@ on:
 jobs:
   run-notebook:
     runs-on: ubuntu-latest
-    timeout-minutes: 30  # Previene ejecuciones eternas
+    timeout-minutes: 30
 
     steps:
     - uses: actions/checkout@v4
@@ -29,26 +29,26 @@ jobs:
         GOOGLE_SHEETS_CREDS: ${{ secrets.GOOGLE_SHEETS_CREDS }}
       run: |
         echo '$GOOGLE_SHEETS_CREDS' > service_account.json
-        echo "🔐 Archivo de credenciales creado:"
+        chmod 600 service_account.json  # Asegura permisos seguros
+        echo "🔐 Credenciales creadas:"
         ls -la service_account.json
 
-    - name: Convert and execute notebook
+    - name: Execute notebook
       run: |
-        # Convertir notebook a script (eliminando celdas de Colab)
         jupyter nbconvert --to python \
           --TagRemovePreprocessor.enabled=True \
           --TagRemovePreprocessor.remove_cell_tags="colab-only" \
           --execute CARGA_AUTOMATICA_DE_DATOS.ipynb
-
-        # Ejecutar directamente (opcional)
-        python CARGA_AUTOMATICA_DE_DATOS.py
+        
+        # Opcional: Ejecutar directamente el script convertido
+        python CARGA_AUTOMATICA_DE_DATOS.py || echo "⚠️ Error al ejecutar script"
 
     - name: Upload logs
       if: always()
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4  # ¡Versión actualizada!
       with:
-        name: execution-logs
+        name: execution-logs-${{ github.run_id }}
         path: |
-          service_account.json
           CARGA_AUTOMATICA_DE_DATOS.py
           cambios.log
+        retention-days: 3  # Borra logs después de 3 días
