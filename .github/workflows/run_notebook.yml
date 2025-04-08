@@ -23,32 +23,48 @@ jobs:
         pip install --upgrade pip
         pip install gspread pandas openpyxl gdown schedule
         pip install google-auth google-auth-oauthlib google-auth-httplib2 nbconvert
+        pip list  # Verifica las versiones instaladas
 
     - name: Create credentials file
       env:
         GOOGLE_SHEETS_CREDS: ${{ secrets.GOOGLE_SHEETS_CREDS }}
       run: |
         echo '$GOOGLE_SHEETS_CREDS' > service_account.json
-        chmod 600 service_account.json  # Asegura permisos seguros
-        echo "🔐 Credenciales creadas:"
-        ls -la service_account.json
+        chmod 600 service_account.json
+        echo "=== Contenido del service_account.json (primeras líneas) ==="
+        head -n 3 service_account.json
+        echo "=========================================================="
+
+    - name: Debug environment
+      run: |
+        echo "=== Variables de entorno ==="
+        env
+        echo "=== Estructura del repo ==="
+        ls -laR
+        echo "==========================="
 
     - name: Execute notebook
       run: |
+        set -x  # Modo verbose
         jupyter nbconvert --to python \
           --TagRemovePreprocessor.enabled=True \
           --TagRemovePreprocessor.remove_cell_tags="colab-only" \
-          --execute CARGA_AUTOMATICA_DE_DATOS.ipynb
+          --execute --allow-errors CARGA_AUTOMATICA_DE_DATOS.ipynb
         
-        # Opcional: Ejecutar directamente el script convertido
-        python CARGA_AUTOMATICA_DE_DATOS.py || echo "⚠️ Error al ejecutar script"
+        echo "=== Archivos generados ==="
+        ls -la
+        
+        # Ejecutar el script convertido con manejo de errores
+        python CARGA_AUTOMATICA_DE_DATOS.py || echo "⚠️ Error en ejecución"
 
-    - name: Upload logs
+    - name: Upload debug info
       if: always()
-      uses: actions/upload-artifact@v4  # ¡Versión actualizada!
+      uses: actions/upload-artifact@v4
       with:
-        name: execution-logs-${{ github.run_id }}
+        name: debug-info-${{ github.run_id }}
         path: |
+          service_account.json
           CARGA_AUTOMATICA_DE_DATOS.py
           cambios.log
-        retention-days: 3  # Borra logs después de 3 días
+          nbconvert.log
+        retention-days: 3
